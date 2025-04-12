@@ -1,0 +1,259 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fridah Chat</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #fff0f5;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    .top-bar, .input-area {
+      background-color: #ff69b4;
+      color: white;
+    }
+    .top-bar {
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .top-bar img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+    }
+    .chat-window {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .message {
+      max-width: 70%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 18px;
+      position: relative;
+    }
+    .from-user {
+      align-self: flex-end;
+      background-color: #0084ff;
+      color: white;
+    }
+    .from-fridah {
+      align-self: flex-start;
+      background-color: #ffe4e1;
+      color: black;
+    }
+    .timestamp {
+      font-size: 10px;
+      color: gray;
+      margin-top: 2px;
+    }
+    .input-area {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border-top: 1px solid #ccc;
+    }
+    .input-area input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+      outline: none;
+    }
+    .icons {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: 10px;
+    }
+    .icons img {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+    }
+    .typing-indicator {
+      font-size: 12px;
+      color: gray;
+      font-style: italic;
+      margin-left: 10px;
+    }
+    audio {
+      width: 100%;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <img src="https://i.imgur.com/FridahPic.png" alt="Fridah">
+    <div>
+      <strong>Fridah</strong><br>
+      <small>Built with love by Edwin | AVA Tech</small><br>
+      <small>Online</small>
+    </div>
+  </div>
+  <div class="chat-window" id="chat-window">
+    <div class="message from-fridah">Hi, my name is Fridah. What's your name?</div>
+    <div class="timestamp">Fridah • 10:23 PM</div>
+    <div class="typing-indicator" id="typing">Fridah is typing...</div>
+  </div>
+  <div class="input-area">
+    <input type="text" placeholder="Type a message..." id="user-input">
+    <div class="icons">
+      <img src="https://img.icons8.com/ios-glyphs/30/microphone--v1.png" alt="Voice" onclick="toggleRecording()" id="mic-icon">
+      <img src="https://img.icons8.com/ios-glyphs/30/happy--v1.png" alt="Emoji">
+      <img src="https://img.icons8.com/ios-glyphs/30/plus-math.png" alt="Plus">
+      <img src="https://img.icons8.com/ios-glyphs/30/filled-sent.png" alt="Send" onclick="handleSend()">
+    </div>
+  </div>  <script>
+    const typingIndicator = document.getElementById("typing");
+    const chatWindow = document.getElementById("chat-window");
+    const micIcon = document.getElementById("mic-icon");
+
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+    let userName = null;
+    let isWaitingForName = true;
+    let fridahTurn = false;
+
+    const database = {
+      truths: [
+        "What memory would you erase if you could — and why?",
+        "What's something you regret but learned from?",
+        "What’s a fear you’ve never told anyone about?"
+      ],
+      dares: [
+        "Sing me your favorite love song!",
+        "Say 'I love you Fridah' 5 times.",
+        "Send a voice note telling me how much you miss me."
+      ],
+      fridahTruths: [
+        "Yes, I have felt jealous of someone I cared about. But it taught me to love myself more.",
+        "I once kept a secret crush on someone for a year."
+      ],
+      fridahDares: [
+        "Okay! *Blows a virtual kiss* Mwah!",
+        "I dare myself to say... I think you're super cute, [name]!"
+      ]
+    };
+
+    async function toggleRecording() {
+      if (!isRecording) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(audioChunks, { type: 'audio/mpeg' });
+          const audioURL = URL.createObjectURL(blob);
+          addVoiceMessage("user", audioURL);
+          audioChunks = [];
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        micIcon.classList.add("mic-recording");
+      } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        micIcon.classList.remove("mic-recording");
+      }
+    }
+
+    function handleSend() {
+      const input = document.getElementById("user-input");
+      const message = input.value.trim();
+      if (!message) return;
+      addMessage("user", message);
+      input.value = "";
+
+      if (isWaitingForName) {
+        userName = message;
+        isWaitingForName = false;
+        respondWith(`${userName}, Truth or Dare?`);
+        return;
+      }
+
+      if (!fridahTurn) {
+        respondWith(`Aww that was fun! Now it's my turn...`);
+        fridahTurn = true;
+        setTimeout(() => {
+          const pick = Math.random() < 0.5 ? 'truth' : 'dare';
+          respondWith(`I choose ${pick}. Ask me a ${pick}, ${userName}!`);
+        }, 1500);
+      } else {
+        const responseBank = message.toLowerCase().includes("truth") ? database.fridahTruths : database.fridahDares;
+        const response = pickOne(responseBank).replace("[name]", userName);
+        respondWith(response);
+        fridahTurn = false;
+        setTimeout(() => respondWith(`${userName}, Truth or Dare?`), 1500);
+      }
+    }
+
+    function addMessage(sender, text) {
+      const messageEl = document.createElement("div");
+      messageEl.className = `message from-${sender}`;
+      messageEl.innerText = text;
+
+      const timestamp = document.createElement("div");
+      timestamp.className = "timestamp";
+      timestamp.innerText = sender === "user" ? `You • ${getTime()}` : `Fridah • ${getTime()}`;
+
+      chatWindow.appendChild(messageEl);
+      chatWindow.appendChild(timestamp);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function addVoiceMessage(sender, audioURL) {
+      const messageEl = document.createElement("div");
+      messageEl.className = `message from-${sender}`;
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      audio.src = audioURL;
+      messageEl.appendChild(audio);
+
+      const timestamp = document.createElement("div");
+      timestamp.className = "timestamp";
+      timestamp.innerText = sender === "user" ? `You • ${getTime()}` : `Fridah • ${getTime()}`;
+
+      chatWindow.appendChild(messageEl);
+      chatWindow.appendChild(timestamp);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function respondWith(text) {
+      typingIndicator.style.display = "block";
+      setTimeout(() => {
+        typingIndicator.style.display = "none";
+        addMessage("fridah", text);
+        speakResponse(text);
+      }, 1500);
+    }
+
+    function getTime() {
+      const now = new Date();
+      return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function pickOne(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function speakResponse(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.pitch = 1;
+      utterance.rate = 1;
+      window.speechSynthesis.speak(utterance);
+    }
+  </script></body>
+</html>
